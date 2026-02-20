@@ -4,5 +4,5 @@ anthropic
 supabase
 python-dotenv
 httpx
-aiogram==3.3.0
-pydantic==2.5.0
+aiogram==3.13.0
+pydantic==2.10.6
