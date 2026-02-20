@@ -5,4 +5,4 @@ supabase
 python-dotenv
 httpx
 aiogram==3.13.0
-pydantic==2.10.6
+pydantic==2.8.2
