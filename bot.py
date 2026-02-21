@@ -1,18 +1,14 @@
 """
 СИСТЕМА "ЗЕРКАЛО" — Telegram Bot
-==================================
-Запуск: python bot.py
 """
 
 import os
 import asyncio
+import json
 import httpx
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
-from aiogram.types import (
-    InlineKeyboardMarkup, InlineKeyboardButton,
-    WebAppInfo, ReplyKeyboardRemove
-)
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
@@ -20,31 +16,37 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_URL = os.getenv("API_URL", "http://localhost:8000")
-WEBAPP_URL = os.getenv("WEBAPP_URL")  # URL твоего GitHub Pages
+WEBAPP_URL = os.getenv("WEBAPP_URL")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 
-# ================================================
-# /start — Приветствие
-# ================================================
-
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     user = message.from_user
     
+    first_name = user.first_name or ""
+    username = user.username or ""
+    
+    webapp_url = (
+        f"{WEBAPP_URL}"
+        f"?test=mirror-v1"
+        f"&user_id={user.id}"
+        f"&username={username}"
+        f"&first_name={first_name}"
+    )
+    
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(
         text="🪞 Пройти тест «Зеркало»",
-        web_app=WebAppInfo(url=f"{WEBAPP_URL}?test=mirror-v1&user_id={user.id}&username={user.username or ''}&first_name={user.first_name or ''}")
+        web_app=WebAppInfo(url=webapp_url)
     ))
     
     await message.answer(
-        f"Привет, {user.first_name}! 👋\n\n"
-        "«*Зеркало*» — это короткое исследование, которое поможет тебе увидеть "
-        "скрытые стороны своей психики: как ты принимаешь решения, реагируешь на стресс, "
-        "что тебя действительно мотивирует.\n\n"
+        f"Привет, {first_name}! 👋\n\n"
+        "«*Зеркало*» — короткое исследование, которое поможет увидеть "
+        "скрытые стороны своей психики.\n\n"
         "⏱ Займёт около 5-7 минут\n"
         "✨ В конце получишь персональный разбор\n\n"
         "Готов?",
@@ -53,14 +55,8 @@ async def cmd_start(message: types.Message):
     )
 
 
-# ================================================
-# Обработка данных из Mini App
-# ================================================
-
 @dp.message(F.web_app_data)
 async def handle_webapp_data(message: types.Message):
-    import json
-    
     user = message.from_user
     
     try:
@@ -68,9 +64,6 @@ async def handle_webapp_data(message: types.Message):
     except Exception:
         await message.answer("Что-то пошло не так. Попробуй ещё раз.")
         return
-    
-    # Ожидаем что Mini App присылает результаты анализа
-    # Формат: {"status": "completed", "session_id": "...", "for_user": "..."}
     
     if data.get("status") == "completed":
         user_result = data.get("for_user", "")
@@ -80,29 +73,32 @@ async def handle_webapp_data(message: types.Message):
             parse_mode="Markdown"
         )
         
-        # Кнопка для повторного прохождения
+        first_name = user.first_name or ""
+        username = user.username or ""
+        webapp_url = (
+            f"{WEBAPP_URL}"
+            f"?test=mirror-v1"
+            f"&user_id={user.id}"
+            f"&username={username}"
+            f"&first_name={first_name}"
+        )
+        
         kb = InlineKeyboardBuilder()
         kb.add(InlineKeyboardButton(
             text="🔄 Пройти ещё раз",
-            web_app=WebAppInfo(url=f"{WEBAPP_URL}?test=mirror-v1&user_id={user.id}&username={user.username or ''}&first_name={user.first_name or ''}")
+            web_app=WebAppInfo(url=webapp_url)
         ))
         
         await message.answer(
-            "Хочешь поделиться этим тестом с кем-то близким? "
-            "Просто перешли им этот бот 💙",
+            "Поделись этим тестом с кем-то близким 💙",
             reply_markup=kb.as_markup()
         )
     
     elif data.get("status") == "error":
         await message.answer(
-            "Произошла ошибка при анализе. Попробуй пройти тест ещё раз.\n"
-            "Если проблема повторяется — напиши нам."
+            "Произошла ошибка при анализе. Попробуй пройти тест ещё раз."
         )
 
-
-# ================================================
-# Команда /profile — посмотреть свой профиль
-# ================================================
 
 @dp.message(F.text == "/profile")
 async def cmd_profile(message: types.Message):
@@ -116,16 +112,12 @@ async def cmd_profile(message: types.Message):
                 return
             
             profile = resp.json()
-            
             tags = profile.get("personality_tags") or []
             tags_text = ", ".join(tags) if tags else "—"
             
             vak_map = {"visual": "Визуал 👁", "audial": "Аудиал 👂", "kinesthetic": "Кинестетик 🤲"}
             stress_map = {"fight": "Борьба ⚡", "flight": "Бегство 🏃", "freeze": "Замирание 🧊"}
-            decision_map = {
-                "logical": "Логик 🧮", "emotional": "Эмоциональный ❤️",
-                "impulsive": "Импульсивный ⚡", "deliberate": "Взвешенный ⚖️"
-            }
+            decision_map = {"logical": "Логик 🧮", "emotional": "Эмоциональный ❤️", "impulsive": "Импульсивный ⚡", "deliberate": "Взвешенный ⚖️"}
             
             text = (
                 f"*Твой психографический профиль*\n\n"
@@ -137,13 +129,9 @@ async def cmd_profile(message: types.Message):
             
             await message.answer(text, parse_mode="Markdown")
             
-        except Exception as e:
+        except Exception:
             await message.answer("Не удалось загрузить профиль. Попробуй позже.")
 
-
-# ================================================
-# Запуск
-# ================================================
 
 async def main():
     print("🤖 Бот запущен...")
