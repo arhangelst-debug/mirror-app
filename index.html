@@ -642,7 +642,7 @@
 
     <div class="stats-row">
       <div class="stat-card">
-        <span class="num" id="questionCount">30</span>
+        <span class="num">10</span>
         <span class="lbl">вопросов</span>
       </div>
       <div class="stat-card">
@@ -663,7 +663,7 @@
     <div class="progress-bar">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
-    <div class="q-counter" id="qCounter">Вопрос 1 из 30</div>
+    <div class="q-counter" id="qCounter">Вопрос 1 из 10</div>
     <div class="q-text" id="qText"></div>
     <div class="options-list" id="optionsList"></div>
     <button class="btn-next" id="btnNext" onclick="nextQuestion()">Далее</button>
@@ -727,9 +727,10 @@
   let answers = [];
   let currentQ = 0;
   let selectedOption = null;
-  let testSlug = 'mirror-v1';
+  const urlParams = new URLSearchParams(window.location.search);
+  let testSlug = urlParams.get('test') || 'mirror-v1';
   let sessionId = null;
-  let userId = tg?.initDataUnsafe?.user?.id || null;
+  let userId = tg?.initDataUnsafe?.user?.id || urlParams.get('user_id') || null;
 
   // ── Screens ──
   function showScreen(id) {
@@ -834,7 +835,7 @@
 
   function showResult(data) {
     const raw = data.user_result || data.for_user || {};
-    const userResult = typeof raw === "string" ? raw : (raw.full_text || raw.short_summary || "Результат получен.");
+    const userResult = typeof raw === 'string' ? raw : (raw.full_text || raw.short_summary || 'Результат получен.');
     const crmData = data.crm_result || data.for_crm || {};
 
     document.getElementById('resultText').textContent = userResult;
@@ -844,12 +845,8 @@
     tags.innerHTML = '';
     const colors = ['blue','teal','purple','red'];
     const items = [
-      crmData.vakd_primary || crmData.vak_type,
-      crmData.stress_response,
-      crmData.decision_style,
-      crmData.archetype_light,
-      crmData.motivation_core,
-      ...(crmData.personality_tags || [])
+      crmData.vak_type, crmData.stress_response,
+      crmData.decision_style, ...(crmData.personality_tags || [])
     ].filter(Boolean);
 
     items.slice(0,6).forEach((tag, i) => {
