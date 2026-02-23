@@ -642,11 +642,11 @@
 
     <div class="stats-row">
       <div class="stat-card">
-        <span class="num">10</span>
+        <span class="num">30</span>
         <span class="lbl">вопросов</span>
       </div>
       <div class="stat-card">
-        <span class="num">5</span>
+        <span class="num">10</span>
         <span class="lbl">минут</span>
       </div>
       <div class="stat-card">
@@ -840,10 +840,44 @@
 
   function showResult(data) {
     const raw = data.user_result || data.for_user || {};
-    const userResult = typeof raw === 'string' ? raw : (raw.full_text || raw.short_summary || 'Результат получен.');
+    const forUser = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const crmData = data.crm_result || data.for_crm || {};
 
-    document.getElementById('resultText').textContent = userResult;
+    // Show title
+    const title = forUser.title || 'Твой портрет';
+    document.getElementById('resultTitle').textContent = title;
+
+    // Show full text with paragraphs
+    const fullText = forUser.full_text || forUser.short_summary || '';
+    const resultTextEl = document.getElementById('resultText');
+    resultTextEl.innerHTML = '';
+    fullText.split('\n\n').forEach(para => {
+      if (para.trim()) {
+        const p = document.createElement('p');
+        p.style.marginBottom = '16px';
+        p.textContent = para.trim();
+        resultTextEl.appendChild(p);
+      }
+    });
+
+    // Show strength and blindspot
+    if (forUser.strength || forUser.blindspot) {
+      const extras = document.createElement('div');
+      extras.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid rgba(0,0,0,0.08);';
+      if (forUser.strength) {
+        const s = document.createElement('p');
+        s.style.cssText = 'font-size:13px;color:#2FB7EB;margin-bottom:8px;';
+        s.textContent = '💪 ' + forUser.strength;
+        extras.appendChild(s);
+      }
+      if (forUser.blindspot) {
+        const b = document.createElement('p');
+        b.style.cssText = 'font-size:13px;color:#854999;';
+        b.textContent = '🔍 ' + forUser.blindspot;
+        extras.appendChild(b);
+      }
+      resultTextEl.appendChild(extras);
+    }
 
     // Tags
     const tags = document.getElementById('resultTags');
