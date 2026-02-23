@@ -642,11 +642,11 @@
 
     <div class="stats-row">
       <div class="stat-card">
-        <span class="num">30</span>
+        <span class="num" id="questionCount">30</span>
         <span class="lbl">вопросов</span>
       </div>
       <div class="stat-card">
-        <span class="num">15</span>
+        <span class="num">5</span>
         <span class="lbl">минут</span>
       </div>
       <div class="stat-card">
@@ -663,7 +663,7 @@
     <div class="progress-bar">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
-    <div class="q-counter" id="qCounter">Вопрос 1 из 30</div>
+    <div class="q-counter" id="qCounter">Вопрос 1 из 10</div>
     <div class="q-text" id="qText"></div>
     <div class="options-list" id="optionsList"></div>
     <button class="btn-next" id="btnNext" onclick="nextQuestion()">Далее</button>
@@ -833,7 +833,8 @@
   }
 
   function showResult(data) {
-    const userResult = data.user_result || data.for_user || 'Результат получен.';
+    const raw = data.user_result || data.for_user || {};
+    const userResult = typeof raw === "string" ? raw : (raw.full_text || raw.short_summary || "Результат получен.");
     const crmData = data.crm_result || data.for_crm || {};
 
     document.getElementById('resultText').textContent = userResult;
@@ -843,8 +844,12 @@
     tags.innerHTML = '';
     const colors = ['blue','teal','purple','red'];
     const items = [
-      crmData.vak_type, crmData.stress_response,
-      crmData.decision_style, ...(crmData.personality_tags || [])
+      crmData.vakd_primary || crmData.vak_type,
+      crmData.stress_response,
+      crmData.decision_style,
+      crmData.archetype_light,
+      crmData.motivation_core,
+      ...(crmData.personality_tags || [])
     ].filter(Boolean);
 
     items.slice(0,6).forEach((tag, i) => {
