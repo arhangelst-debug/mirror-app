@@ -1,7 +1,7 @@
 import os
 import json
 import re
-import anthropic
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -19,19 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def clean_ascii(s):
-    """Удаляет все не-ASCII символы из строки"""
-    if not s:
-        return s
-    return s.encode('ascii', errors='ignore').decode('ascii')
-
-ANTHROPIC_API_KEY = clean_ascii(os.getenv("ANTHROPIC_API_KEY", ""))
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_SERVICE_KEY")
 )
-claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 class UserInfo(BaseModel):
@@ -101,22 +94,34 @@ async def submit_answers(data: SubmitAnswers):
 
     answers_formatted = "\n\n".join(answers_text)
 
-    # Чистим промпт от всех проблемных символов
-    raw_prompt = test["system_prompt"] or ""
-    clean_prompt = raw_prompt.encode('utf-8', errors='ignore').decode('utf-8')
-    clean_prompt = re.sub(r'[\u2028\u2029\u00ad\u200b\u200c\u200d\ufeff]', ' ', clean_prompt)
+    clean_prompt = re.sub(r'[\u2028\u2029\u00ad\u200b\u200c\u200d\ufeff]', ' ', test["system_prompt"] or "")
 
-    message = claude.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1500,
-        system=clean_prompt,
-        messages=[{
-            "role": "user",
-            "content": f"Вот ответы пользователя на тест. Проведи анализ и верни JSON.\n\n{answers_formatted}"
-        }]
-    )
+    # Вызываем Claude напрямую через httpx
+    api_key = ANTHROPIC_API_KEY.encode('ascii', errors='ignore').decode('ascii').strip()
+    
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 1500,
+                "system": clean_prompt,
+                "messages": [{
+                    "role": "user",
+                    "content": f"Вот ответы пользователя на тест. Проведи анализ и верни JSON.\n\n{answers_formatted}"
+                }]
+            }
+        )
+    
+    if response.status_code != 200:
+        raise HTTPException(500, f"Claude API error: {response.text}")
 
-    raw_response = message.content[0].text
+    raw_response = response.json()["content"][0]["text"]
 
     try:
         result = json.loads(raw_response)
@@ -160,4 +165,5 @@ async def get_user_profile(telegram_id: int):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "api_key_length": len(ANTHROPIC_API_KEY)}
+    key = ANTHROPIC_API_KEY.encode('ascii', errors='ignore').decode('ascii').strip()
+    return {"status": "ok", "api_key_length": len(key), "api_key_start": key[:10]}
