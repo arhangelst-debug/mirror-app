@@ -124,14 +124,25 @@ async def submit_answers(data: SubmitAnswers):
 
     raw_response = response.json()["content"][0]["text"]
 
+    # Clean and parse JSON response
+    raw_response = raw_response.strip()
+    if raw_response.startswith("```"):
+        raw_response = re.sub(r'^```[a-z]*\n?', '', raw_response)
+        raw_response = re.sub(r'```$', '', raw_response).strip()
+    
     try:
         result = json.loads(raw_response)
     except json.JSONDecodeError:
-        match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+        # Try to extract JSON object
+        match = re.search(r'\{[\s\S]*\}', raw_response)
         if match:
-            result = json.loads(match.group())
+            try:
+                result = json.loads(match.group())
+            except json.JSONDecodeError:
+                # Last resort: return raw text as for_user
+                result = {"for_user": raw_response, "for_crm": {}}
         else:
-            raise HTTPException(500, "Ошибка парсинга ответа")
+            result = {"for_user": raw_response, "for_crm": {}}
 
     user_result = result.get("for_user", "")
     crm_result = result.get("for_crm", {})
