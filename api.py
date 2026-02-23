@@ -19,7 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+raw_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_API_KEY = raw_key if raw_key.startswith("sk-") else "s" + raw_key
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
