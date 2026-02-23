@@ -730,7 +730,7 @@
   const urlParams = new URLSearchParams(window.location.search);
   let testSlug = urlParams.get('test') || 'mirror-v1';
   let sessionId = null;
-  let userId = tg?.initDataUnsafe?.user?.id || urlParams.get('user_id') || null;
+  let userId = tg?.initDataUnsafe?.user?.id || urlParams.get('user_id') || 123;
 
   // ── Screens ──
   function showScreen(id) {
@@ -748,10 +748,10 @@
       questions = data.questions || [];
       testSlug = data.test?.slug || testSlug;
 
-      const sr = await fetch(`${API_URL}/session/start`, {
+      const sr = await fetch(`${API_URL}/session/start?test_slug=${testSlug}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ test_slug: testSlug, user_id: userId, telegram_data: tg?.initData || '' })
+        body: JSON.stringify({ telegram_id: userId, username: tg?.initDataUnsafe?.user?.username || null, first_name: tg?.initDataUnsafe?.user?.first_name || 'User' })
       });
       const sd = await sr.json();
       sessionId = sd.session_id;
@@ -816,10 +816,15 @@
     animateLoadingSteps([1,2,3], 1200);
 
     try {
-      const r = await fetch(`${API_URL}/session/submit`, {
+      const r = await fetch(`${API_URL}/submit`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ session_id: sessionId, answers })
+        body: JSON.stringify({
+          session_id: sessionId,
+          user: { telegram_id: userId, username: tg?.initDataUnsafe?.user?.username || null, first_name: tg?.initDataUnsafe?.user?.first_name || 'User' },
+          test_slug: testSlug,
+          answers: Object.fromEntries(answers.map(a => [a.question_id, a.option_id]))
+        })
       });
       const data = await r.json();
 
@@ -845,8 +850,7 @@
     tags.innerHTML = '';
     const colors = ['blue','teal','purple','red'];
     const items = [
-      crmData.vak_type, crmData.stress_response,
-      crmData.decision_style, ...(crmData.personality_tags || [])
+      crmData.vakd_primary || crmData.vak_type, crmData.archetype_light, crmData.stress_response, crmData.motivation_core
     ].filter(Boolean);
 
     items.slice(0,6).forEach((tag, i) => {
