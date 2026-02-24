@@ -830,13 +830,7 @@
 
       await new Promise(res => setTimeout(res, 3200));
 
-      // DEBUG: show raw data
-      console.log('RAW DATA:', JSON.stringify(data));
-      document.getElementById('resultTitle').textContent = 'Портрет готов';
-      const dbg = document.getElementById('resultText');
-      dbg.textContent = 'for_user type: ' + typeof data.for_user + ' | user_result type: ' + typeof data.user_result;
-      showScreen('result');
-      setTimeout(() => showResult(data), 100);
+      showResult(data);
     } catch(e) {
       showScreen('result');
       document.getElementById('resultText').innerHTML =
@@ -845,36 +839,18 @@
   }
 
   function showResult(data) {
-    // Parse top-level if string
-    let parsed = data;
-    if (typeof data === 'string') {
-      try { parsed = JSON.parse(data); } catch(e) {}
-    }
-    // If data.user_result is a string, parse it
-    if (typeof parsed.user_result === 'string') {
-      try { parsed = JSON.parse(parsed.user_result); } catch(e) {}
-    }
-    
-    let forUser = parsed.for_user || parsed.user_result || parsed;
-    let crmDataRaw = parsed.for_crm || parsed.crm_result || {};
-    
-    // Handle nested for_user
-    if (typeof forUser === 'string') {
-      try { forUser = JSON.parse(forUser); } catch(e) { forUser = { full_text: forUser }; }
-    }
-    if (forUser.for_user) forUser = forUser.for_user;
-    
-    const crmData = typeof crmDataRaw === 'string' ? JSON.parse(crmDataRaw) : crmDataRaw;
+    // api.py returns for_user as plain string (full_text)
+    const userText = data.for_user || data.user_result || '';
+    const crmData = data.for_crm || data.crm_result || {};
 
-    // Show title
-    const title = forUser.title || 'Твой портрет';
-    document.getElementById('resultTitle').textContent = title;
+    // Title
+    document.getElementById('resultTitle').textContent = 'Твой портрет';
 
-    // Show full text with paragraphs
-    const fullText = forUser.full_text || forUser.short_summary || '';
+    // Show text split by paragraphs
     const resultTextEl = document.getElementById('resultText');
     resultTextEl.innerHTML = '';
-    fullText.split('\n\n').forEach(para => {
+    const paragraphs = userText.split(/\n\n+/);
+    paragraphs.forEach(para => {
       if (para.trim()) {
         const p = document.createElement('p');
         p.style.marginBottom = '16px';
@@ -882,25 +858,6 @@
         resultTextEl.appendChild(p);
       }
     });
-
-    // Show strength and blindspot
-    if (forUser.strength || forUser.blindspot) {
-      const extras = document.createElement('div');
-      extras.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid rgba(0,0,0,0.08);';
-      if (forUser.strength) {
-        const s = document.createElement('p');
-        s.style.cssText = 'font-size:13px;color:#2FB7EB;margin-bottom:8px;';
-        s.textContent = '💪 ' + forUser.strength;
-        extras.appendChild(s);
-      }
-      if (forUser.blindspot) {
-        const b = document.createElement('p');
-        b.style.cssText = 'font-size:13px;color:#854999;';
-        b.textContent = '🔍 ' + forUser.blindspot;
-        extras.appendChild(b);
-      }
-      resultTextEl.appendChild(extras);
-    }
 
     // Tags
     const tags = document.getElementById('resultTags');
