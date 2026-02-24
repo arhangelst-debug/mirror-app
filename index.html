@@ -830,16 +830,7 @@
 
       await new Promise(res => setTimeout(res, 3200));
 
-      try {
-        showResult(data);
-      } catch(renderErr) {
-        showScreen('result');
-        document.getElementById('resultTitle').textContent = 'Портрет готов';
-        // Fallback: show raw text if parsing fails
-        const raw = data.user_result || data.for_user || {};
-        const text = typeof raw === 'object' ? (raw.full_text || raw.short_summary || JSON.stringify(raw).slice(0,200)) : String(raw);
-        document.getElementById('resultText').textContent = text;
-      }
+      showResult(data);
     } catch(e) {
       showScreen('result');
       document.getElementById('resultText').innerHTML =
@@ -848,16 +839,26 @@
   }
 
   function showResult(data) {
-    let raw = data.user_result || data.for_user || {};
-    let forUser;
-    if (typeof raw === 'string') {
-      try { forUser = JSON.parse(raw); } catch(e) { forUser = { full_text: raw }; }
-    } else {
-      forUser = raw;
+    // Parse top-level if string
+    let parsed = data;
+    if (typeof data === 'string') {
+      try { parsed = JSON.parse(data); } catch(e) {}
     }
-    // If forUser itself has nested for_user key
+    // If data.user_result is a string, parse it
+    if (typeof parsed.user_result === 'string') {
+      try { parsed = JSON.parse(parsed.user_result); } catch(e) {}
+    }
+    
+    let forUser = parsed.for_user || parsed.user_result || parsed;
+    let crmDataRaw = parsed.for_crm || parsed.crm_result || {};
+    
+    // Handle nested for_user
+    if (typeof forUser === 'string') {
+      try { forUser = JSON.parse(forUser); } catch(e) { forUser = { full_text: forUser }; }
+    }
     if (forUser.for_user) forUser = forUser.for_user;
-    const crmData = data.crm_result || data.for_crm || {};
+    
+    const crmData = typeof crmDataRaw === 'string' ? JSON.parse(crmDataRaw) : crmDataRaw;
 
     // Show title
     const title = forUser.title || 'Твой портрет';
