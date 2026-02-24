@@ -410,11 +410,11 @@
     height: 28px;
     background: var(--dark);
     border-radius: 50%;
-    animation: pupilScan 2s ease-in-out infinite;
+    animation: pupilPulse 2s ease-in-out infinite;
   }
-  @keyframes pupilScan {
-    0%,100% { transform: translateX(-12px); opacity: 0.4; }
-    50% { transform: translateX(12px); opacity: 1; }
+  @keyframes pupilPulse {
+    0%,100% { transform: scale(0.85); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 1; }
   }
   .loader-rings {
     position: absolute;
@@ -845,7 +845,7 @@
     const crmData = data.for_crm || data.crm_result || {};
 
     // Title
-    document.getElementById('resultTitle').textContent = 'Твой портрет';
+    document.getElementById('resultTitle').textContent = 'Твоё отражение';
 
     // Show text split by paragraphs
     const resultTextEl = document.getElementById('resultText');
@@ -858,21 +858,6 @@
         p.textContent = para.trim();
         resultTextEl.appendChild(p);
       }
-    });
-
-    // Tags
-    const tags = document.getElementById('resultTags');
-    tags.innerHTML = '';
-    const colors = ['blue','teal','purple','red'];
-    const items = [
-      crmData.vakd_primary || crmData.vak_type, crmData.archetype_light, crmData.stress_response, crmData.motivation_core
-    ].filter(Boolean);
-
-    items.slice(0,6).forEach((tag, i) => {
-      const el = document.createElement('span');
-      el.className = `tag tag-${colors[i % colors.length]}`;
-      el.textContent = tag;
-      tags.appendChild(el);
     });
 
     showScreen('result');
