@@ -170,6 +170,7 @@ async def submit_answers(data: SubmitAnswers):
         "raw_profile": crm_result,
     }).eq("id", data.user.telegram_id).execute()
 
+    print(f"DEBUG for_user type: {type(user_result)}, value[:100]: {str(user_result)[:100]}")
     return {"status": "ok", "for_user": user_result, "for_crm": crm_result}
 
 
