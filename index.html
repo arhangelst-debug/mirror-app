@@ -642,11 +642,11 @@
 
     <div class="stats-row">
       <div class="stat-card">
-        <span class="num">30</span>
+        <span class="num">10</span>
         <span class="lbl">вопросов</span>
       </div>
       <div class="stat-card">
-        <span class="num">10</span>
+        <span class="num">5</span>
         <span class="lbl">минут</span>
       </div>
       <div class="stat-card">
@@ -830,7 +830,13 @@
 
       await new Promise(res => setTimeout(res, 3200));
 
-      showResult(data);
+      // DEBUG: show raw data
+      console.log('RAW DATA:', JSON.stringify(data));
+      document.getElementById('resultTitle').textContent = 'Портрет готов';
+      const dbg = document.getElementById('resultText');
+      dbg.textContent = 'for_user type: ' + typeof data.for_user + ' | user_result type: ' + typeof data.user_result;
+      showScreen('result');
+      setTimeout(() => showResult(data), 100);
     } catch(e) {
       showScreen('result');
       document.getElementById('resultText').innerHTML =
