@@ -66,7 +66,11 @@ async def handle_webapp_data(message: types.Message):
         return
     
     if data.get("status") == "completed":
-        user_result = data.get("for_user", "")
+        raw_result = data.get("for_user", "") or data.get("user_result", "")
+        if isinstance(raw_result, dict):
+            user_result = raw_result.get("full_text") or raw_result.get("short_summary") or ""
+        else:
+            user_result = str(raw_result)
         
         await message.answer(
             f"🪞 *Твоё Зеркало*\n\n{user_result}",
