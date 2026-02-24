@@ -144,8 +144,14 @@ async def submit_answers(data: SubmitAnswers):
         else:
             result = {"for_user": raw_response, "for_crm": {}}
 
-    user_result = result.get("for_user", "")
+    user_result_raw = result.get("for_user", "")
     crm_result = result.get("for_crm", {})
+    
+    # Extract just full_text for user display
+    if isinstance(user_result_raw, dict):
+        user_result = user_result_raw.get("full_text") or user_result_raw.get("short_summary") or str(user_result_raw)
+    else:
+        user_result = str(user_result_raw)
 
     supabase.table("sessions").update({
         "user_result": user_result,
