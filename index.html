@@ -839,6 +839,7 @@
   }
 
   function showResult(data) {
+    showScreen('result');
     // api.py returns for_user as plain string (full_text)
     const userText = data.for_user || data.user_result || '';
     const crmData = data.for_crm || data.crm_result || {};
