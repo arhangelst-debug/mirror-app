@@ -31,7 +31,7 @@ async def cmd_start(message: types.Message):
     
     webapp_url = (
         f"{WEBAPP_URL}"
-        f"?test=mirror-v1"
+        f"?test=profile-v1"
         f"&user_id={user.id}"
         f"&username={username}"
         f"&first_name={first_name}"
@@ -77,7 +77,7 @@ async def handle_webapp_data(message: types.Message):
         username = user.username or ""
         webapp_url = (
             f"{WEBAPP_URL}"
-            f"?test=mirror-v1"
+            f"?test=profile-v1"
             f"&user_id={user.id}"
             f"&username={username}"
             f"&first_name={first_name}"
