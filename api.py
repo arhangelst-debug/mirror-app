@@ -147,19 +147,11 @@ async def submit_answers(data: SubmitAnswers):
     user_result_raw = result.get("for_user", "")
     crm_result = result.get("for_crm", {})
     
-    # for_user может быть строкой-JSON, объектом, или plain text
-    if isinstance(user_result_raw, str):
-        try:
-            parsed_user = json.loads(user_result_raw)
-            user_result = parsed_user.get("full_text") or parsed_user.get("short_summary") or user_result_raw
-        except (json.JSONDecodeError, AttributeError):
-            user_result = user_result_raw
-    elif isinstance(user_result_raw, dict):
+    # Extract just full_text for user display
+    if isinstance(user_result_raw, dict):
         user_result = user_result_raw.get("full_text") or user_result_raw.get("short_summary") or str(user_result_raw)
     else:
         user_result = str(user_result_raw)
-    
-    print(f"DEBUG for_user type: {type(user_result_raw)}, result[:80]: {str(user_result)[:80]}")
 
     supabase.table("sessions").update({
         "user_result": user_result,
