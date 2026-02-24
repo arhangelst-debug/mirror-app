@@ -848,8 +848,15 @@
   }
 
   function showResult(data) {
-    const raw = data.user_result || data.for_user || {};
-    const forUser = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    let raw = data.user_result || data.for_user || {};
+    let forUser;
+    if (typeof raw === 'string') {
+      try { forUser = JSON.parse(raw); } catch(e) { forUser = { full_text: raw }; }
+    } else {
+      forUser = raw;
+    }
+    // If forUser itself has nested for_user key
+    if (forUser.for_user) forUser = forUser.for_user;
     const crmData = data.crm_result || data.for_crm || {};
 
     // Show title
