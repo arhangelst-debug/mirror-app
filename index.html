@@ -340,7 +340,11 @@
   function nextQuestion() {
     if (!selectedOption) return;
     const activeQ = extendedMode ? allQuestions : basicQuestions;
-    answers.push({ question_id: activeQ[currentQ].id, option_id: selectedOption });
+    answers.push({
+      question_id: activeQ[currentQ].id,          // legacy/debug
+      question_order: activeQ[currentQ].order_num, // stable across basic/full
+      option_id: selectedOption
+    });
     currentQ++;
 
     if (!extendedMode && currentQ >= basicQuestions.length) {
@@ -369,7 +373,10 @@
     showScreen('loading');
     animateLoadingSteps([1, 2, 3], 1200);
     try {
-      const answersMap = Object.fromEntries(answers.map(a => [a.question_id, a.option_id]));
+      // Stable payload format: q1..q30 avoids DB ID mismatch between basic/full tests.
+      const answersMap = Object.fromEntries(
+        answers.map(a => [`q${a.question_order}`, a.option_id])
+      );
       const r = await fetch(`${API_URL}/submit`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -385,6 +392,9 @@
         })
       });
       const data = await r.json();
+      if (!r.ok) {
+        throw new Error(data?.detail || 'Не удалось получить результат');
+      }
       await new Promise(res => setTimeout(res, 3200));
       showResult(data);
     } catch(e) {
