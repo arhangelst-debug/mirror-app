@@ -47,6 +47,25 @@ class SubmitAnswers(BaseModel):
     answers: dict
 
 
+def _pick_answer_id(answers: dict, question: dict):
+    """
+    Supports both legacy answers keyed by DB question_id and stable keys q1..q30.
+    This avoids breakage when basic/full tests have different question IDs.
+    """
+    qid = question.get("id")
+    order_num = question.get("order_num")
+    candidate_keys = [
+        qid,
+        str(qid) if qid is not None else None,
+        f"q{order_num}" if order_num is not None else None,
+        str(order_num) if order_num is not None else None,
+    ]
+    for key in candidate_keys:
+        if key is not None and key in answers:
+            return answers.get(key)
+    return None
+
+
 async def send_delayed_result(telegram_id: int, for_user: dict, delay: int = 300):
     await asyncio.sleep(delay)
     try:
@@ -134,11 +153,17 @@ async def submit_answers(data: SubmitAnswers):
 
     answers_text = []
     for q in questions:
-        answer_id = data.answers.get(q["id"])
+        answer_id = _pick_answer_id(data.answers, q)
         if answer_id and q["options"]:
             options = q["options"] if isinstance(q["options"], list) else []
             answer_text = next((opt["text"] for opt in options if opt["id"] == answer_id), answer_id)
             answers_text.append(f"Вопрос: {q['text']}\nОтвет: {answer_text}")
+
+    if not answers_text:
+        raise HTTPException(
+            400,
+            "Не удалось сопоставить ответы с вопросами теста. Проверь формат answers (рекомендуется q1..q30).",
+        )
 
     answers_formatted = "\n\n".join(answers_text)
     clean_prompt = re.sub(r'[\u2028\u2029\u00ad\u200b\u200c\u200d\ufeff]', ' ', test["system_prompt"] or "")
