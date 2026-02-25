@@ -283,7 +283,7 @@
       basicQuestions = allQuestions.filter(q => q.order_num <= 20);
       extendedQuestions = allQuestions.filter(q => q.order_num > 20);
 
-      const sr = await fetch(`${API_URL}/session/start?test_slug=profile-v1-basic`, {
+      const sr = await fetch(`${API_URL}/session/start?test_slug=profile-v1-full`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
