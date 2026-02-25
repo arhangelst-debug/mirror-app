@@ -1,7 +1,9 @@
 import os
 import json
 import re
+import asyncio
 import httpx
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,6 +24,10 @@ app.add_middleware(
 raw_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_API_KEY = raw_key if raw_key.startswith("sk-") else "s" + raw_key
 
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "")
+RESULT_DELAY_SECONDS = int(os.getenv("RESULT_DELAY_SECONDS", "300"))
+
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_SERVICE_KEY")
@@ -39,6 +45,47 @@ class SubmitAnswers(BaseModel):
     user: UserInfo
     test_slug: str
     answers: dict
+
+
+async def send_delayed_result(telegram_id: int, for_user: dict, delay: int = 300):
+    await asyncio.sleep(delay)
+    try:
+        title = for_user.get("title", "")
+        short_summary = for_user.get("short_summary", "")
+        strength = for_user.get("strength", "")
+        blindspot = for_user.get("blindspot", "")
+        date_str = datetime.now().strftime("%d.%m.%Y")
+
+        text = (
+            f"🪞 *{title}*\n\n"
+            f"{short_summary}\n\n"
+            f"✦ {strength}\n"
+            f"◎ {blindspot}\n\n"
+            f"_{date_str}_"
+        )
+
+        keyboard = {
+            "inline_keyboard": [[{
+                "text": "🪞 Пройти ещё раз",
+                "web_app": {"url": WEBAPP_URL}
+            }]]
+        } if WEBAPP_URL else None
+
+        payload = {
+            "chat_id": telegram_id,
+            "text": text,
+            "parse_mode": "Markdown"
+        }
+        if keyboard:
+            payload["reply_markup"] = json.dumps(keyboard)
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                json=payload
+            )
+    except Exception as e:
+        print(f"send_delayed_result error: {e}")
 
 
 @app.get("/test/{slug}")
@@ -94,12 +141,10 @@ async def submit_answers(data: SubmitAnswers):
             answers_text.append(f"Вопрос: {q['text']}\nОтвет: {answer_text}")
 
     answers_formatted = "\n\n".join(answers_text)
-
     clean_prompt = re.sub(r'[\u2028\u2029\u00ad\u200b\u200c\u200d\ufeff]', ' ', test["system_prompt"] or "")
 
-    # Вызываем Claude напрямую через httpx
     api_key = ANTHROPIC_API_KEY.encode('ascii', errors='ignore').decode('ascii').strip()
-    
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             "https://api.anthropic.com/v1/messages",
@@ -118,40 +163,36 @@ async def submit_answers(data: SubmitAnswers):
                 }]
             }
         )
-    
+
     if response.status_code != 200:
         raise HTTPException(500, f"Claude API error: {response.text}")
 
-    raw_response = response.json()["content"][0]["text"]
-
-    # Clean and parse JSON response
-    raw_response = raw_response.strip()
+    raw_response = response.json()["content"][0]["text"].strip()
     if raw_response.startswith("```"):
         raw_response = re.sub(r'^```[a-z]*\n?', '', raw_response)
         raw_response = re.sub(r'```$', '', raw_response).strip()
-    
+
     try:
         result = json.loads(raw_response)
     except json.JSONDecodeError:
-        # Try to extract JSON object
         match = re.search(r'\{[\s\S]*\}', raw_response)
         if match:
             try:
                 result = json.loads(match.group())
             except json.JSONDecodeError:
-                # Last resort: return raw text as for_user
-                result = {"for_user": raw_response, "for_crm": {}}
+                result = {"for_user": {"full_text": raw_response}, "for_crm": {}}
         else:
-            result = {"for_user": raw_response, "for_crm": {}}
+            result = {"for_user": {"full_text": raw_response}, "for_crm": {}}
 
-    user_result_raw = result.get("for_user", "")
+    for_user = result.get("for_user", {})
     crm_result = result.get("for_crm", {})
-    
-    # Extract just full_text for user display
-    if isinstance(user_result_raw, dict):
-        user_result = user_result_raw.get("full_text") or user_result_raw.get("short_summary") or str(user_result_raw)
+
+    # for display in Mini App — full_text
+    if isinstance(for_user, dict):
+        user_result = for_user.get("full_text") or for_user.get("short_summary") or str(for_user)
     else:
-        user_result = str(user_result_raw)
+        user_result = str(for_user)
+        for_user = {"full_text": user_result}
 
     supabase.table("sessions").update({
         "user_result": user_result,
@@ -160,17 +201,23 @@ async def submit_answers(data: SubmitAnswers):
     }).eq("id", data.session_id).execute()
 
     supabase.table("users").update({
-        "vak_type": crm_result.get("vak_type"),
+        "vak_type": crm_result.get("vakd_primary"),
         "stress_response": crm_result.get("stress_response"),
         "attachment_type": crm_result.get("attachment_type"),
-        "decision_style": crm_result.get("decision_style"),
-        "anxiety_level": crm_result.get("anxiety_level"),
-        "buying_power": crm_result.get("buying_power"),
-        "personality_tags": crm_result.get("personality_tags", []),
         "raw_profile": crm_result,
     }).eq("id", data.user.telegram_id).execute()
 
-    return {"status": "ok", "for_user": user_result, "for_crm": crm_result}
+    # Send delayed message to bot
+    if BOT_TOKEN and isinstance(for_user, dict) and for_user.get("title"):
+        asyncio.create_task(
+            send_delayed_result(data.user.telegram_id, for_user, RESULT_DELAY_SECONDS)
+        )
+
+    return {
+        "status": "ok",
+        "for_user": for_user,
+        "for_crm": crm_result
+    }
 
 
 @app.get("/user/{telegram_id}/profile")
